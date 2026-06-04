@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>frontline_ | execution artifact research</title>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:      #02091a;
+      --blue:      #1d6bff;
+      --blue-dim:  rgba(29,107,255,0.12);
+      --blue-glow: rgba(29,107,255,0.35);
+      --grid-c:    rgba(18,70,185,0.14);
+      --text-hi:   #d8e8ff;
+      --text-term: #4a8fff;
+      --text-dim:  rgba(55,105,210,0.45);
+      --font-hand: 'Caveat', cursive;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{overflow-x:hidden;background:var(--navy);color:var(--text-hi);font-family:var(--font-mono);}
+    .grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(var(--grid-c) 1px,transparent 1px),linear-gradient(90deg,var(--grid-c) 1px,transparent 1px);background-size:54px 54px;}
+    .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 0%,transparent 30%,rgba(2,5,18,.7) 100%);}
+
+    /* NAV */
+    nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:14px 40px;border-bottom:1px solid var(--blue-dim);background:rgba(2,9,26,.75);backdrop-filter:blur(12px);}
+    .nav-logo{display:flex;align-items:center;gap:10px;font-family:var(--font-hand);font-size:21px;font-weight:700;color:var(--text-hi);text-decoration:none;}
+    .nav-f{width:32px;height:32px;border:1.5px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-hand);font-size:17px;color:var(--text-hi);box-shadow:0 0 10px var(--blue-glow);}
+    .nav-links{display:flex;gap:26px;list-style:none;}
+    .nav-links a{font-size:12px;letter-spacing:.1em;color:var(--text-term);text-decoration:none;transition:color .2s;}
+    .nav-links a:hover,.nav-links a.active{color:var(--text-hi);}
+    .nav-links a.active{border-bottom:1px solid var(--blue);padding-bottom:1px;}
+
+    /* PAGE HEADER */
+    .page-header{position:relative;z-index:10;padding:110px 48px 40px;border-bottom:1px solid var(--blue-dim);overflow:hidden;}
+    .page-header::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(29,107,255,.04) 0%,transparent 100%);}
+    .ph-hc{position:absolute;width:16px;height:16px;opacity:.45;}
+    .ph-tl{top:60px;left:40px;border-top:1.5px solid var(--text-term);border-left:1.5px solid var(--text-term);}
+    .ph-tr{top:60px;right:40px;border-top:1.5px solid var(--text-term);border-right:1.5px solid var(--text-term);}
+    .ph-bl{bottom:0;left:40px;border-bottom:1.5px solid var(--text-term);border-left:1.5px solid var(--text-term);}
+    .ph-br{bottom:0;right:40px;border-bottom:1.5px solid var(--text-term);border-right:1.5px solid var(--text-term);}
+    .ph-inner{position:relative;z-index:1;max-width:1060px;margin:0 auto;}
+    .ph-breadcrumb{font-size:11px;letter-spacing:.14em;color:var(--text-term);opacity:.65;margin-bottom:14px;}
+    .ph-breadcrumb .sep{color:var(--text-dim);margin:0 6px;}
+    .ph-title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+    .ph-title{font-family:var(--font-hand);font-size:clamp(42px,7vw,68px);font-weight:700;color:var(--text-hi);line-height:.95;text-shadow:0 0 40px rgba(210,230,255,.1);}
+    .ph-cursor{color:var(--blue);animation:blink 1.1s step-end infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+    .ph-meta{text-align:right;}
+    .ph-count{font-size:12px;color:var(--text-term);letter-spacing:.08em;}
+    .ph-count span{color:var(--blue);font-weight:600;}
+    .ph-sub{font-size:10px;color:var(--text-dim);margin-top:4px;letter-spacing:.06em;}
+    .ph-term{position:absolute;right:52px;top:72px;font-size:10.5px;color:var(--text-dim);font-weight:300;line-height:1.7;text-align:right;}
+
+    /* FILTER BAR */
+    .filter-bar{position:sticky;top:52px;z-index:100;background:rgba(2,9,26,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--blue-dim);padding:12px 48px;}
+    .filter-inner{max-width:1060px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .search-wrap{display:flex;align-items:center;gap:8px;background:rgba(29,107,255,.06);border:1px solid rgba(29,107,255,.2);border-radius:3px;padding:7px 14px;flex:1;min-width:180px;max-width:280px;transition:border-color .2s;}
+    .search-wrap:focus-within{border-color:rgba(29,107,255,.5);}
+    .search-prompt{color:var(--blue);font-size:13px;font-weight:600;user-select:none;}
+    .search-input{background:transparent;border:none;outline:none;color:var(--text-hi);font-family:var(--font-mono);font-size:12px;width:100%;}
+    .search-input::placeholder{color:var(--text-dim);}
+    .tag-filters{display:flex;gap:6px;flex-wrap:wrap;}
+    .tag-pill{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;padding:5px 11px;border:1px solid rgba(29,107,255,.18);border-radius:2px;color:var(--text-dim);background:transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
+    .tag-pill:hover{color:var(--text-term);border-color:rgba(29,107,255,.4);}
+    .tag-pill.active{color:var(--navy);background:var(--blue);border-color:var(--blue);box-shadow:0 0 12px rgba(29,107,255,.4);}
+
+    /* POST LIST */
+    .post-list-wrap{position:relative;z-index:10;max-width:1060px;margin:0 auto;padding:0 48px 80px;}
+    .no-results{font-size:12px;color:var(--text-dim);text-align:center;padding:60px 0;display:none;}
+    .no-results span{color:var(--blue);}
+    .no-results.visible{display:block;}
+
+    .post-item{display:grid;grid-template-columns:48px 1fr auto;gap:0;align-items:start;padding:22px 0;border-bottom:1px solid rgba(29,107,255,.09);text-decoration:none;color:var(--text-hi);position:relative;transition:background .2s,padding-left .2s;}
+    .post-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--blue);transform:scaleY(0);transform-origin:center;transition:transform .2s;}
+    .post-item:hover{background:rgba(29,107,255,.035);padding-left:10px;}
+    .post-item:hover::before{transform:scaleY(1);}
+    .post-item:last-child{border-bottom:none;}
+    .p-num{font-size:11px;color:var(--text-dim);font-weight:300;padding-top:3px;letter-spacing:.05em;}
+    .p-body{padding-right:16px;}
+    .p-top{display:flex;align-items:center;gap:10px;margin-bottom:7px;flex-wrap:wrap;}
+    .p-date{font-size:10.5px;color:var(--text-dim);font-weight:300;letter-spacing:.06em;}
+    .p-os{font-size:9px;letter-spacing:.12em;padding:2px 7px;border-radius:2px;font-weight:600;}
+    .p-os.windows{background:rgba(29,107,255,.12);color:#4a8fff;border:1px solid rgba(29,107,255,.25);}
+    .p-os.linux  {background:rgba(249,115,22,.1);color:#fb923c;border:1px solid rgba(249,115,22,.25);}
+    .p-os.macos  {background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.25);}
+    .p-tags{display:flex;gap:5px;flex-wrap:wrap;}
+    .p-tag{font-size:9px;letter-spacing:.12em;color:var(--text-dim);border:1px solid rgba(29,107,255,.15);border-radius:2px;padding:1px 5px;}
+    .p-artifact{font-size:10px;letter-spacing:.14em;color:var(--blue);margin-bottom:5px;font-weight:600;}
+    .p-title{font-size:15px;font-weight:600;margin-bottom:6px;line-height:1.35;color:var(--text-hi);}
+    .p-excerpt{font-size:11.5px;line-height:1.75;color:var(--text-term);font-weight:300;max-width:680px;}
+    .p-time{font-size:10.5px;color:var(--text-dim);white-space:nowrap;padding-top:4px;font-weight:300;}
+
+    /* FOOTER */
+    footer{position:relative;z-index:10;border-top:1px solid var(--blue-dim);padding:18px 48px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-dim);}
+    .foot-links{display:flex;gap:20px;}
+    footer a{color:var(--text-term);text-decoration:none;}
+    footer a:hover{color:var(--text-hi);}
+
+    @media(max-width:760px){
+      nav,footer{padding:12px 20px;}
+      .filter-bar,.page-header,.post-list-wrap{padding-left:20px;padding-right:20px;}
+      .post-item{grid-template-columns:36px 1fr;}
+      .p-time{display:none;}
+      .filter-bar{top:50px;}
+      .ph-term{display:none;}
+    }
+  </style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="vignette"></div>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="nav-f">f-</div>frontline_</a>
+  <ul class="nav-links">
+    <li><a href="index.html">home</a></li>
+    <li><a href="posts.html" class="active">research</a></li>
+    <li><a href="artifacts.html">artifacts</a></li>
+    <li><a href="about.html">about</a></li>
+  </ul>
+</nav>
+
+<div class="page-header">
+  <div class="ph-hc ph-tl"></div><div class="ph-hc ph-tr"></div>
+  <div class="ph-hc ph-bl"></div><div class="ph-hc ph-br"></div>
+  <div class="ph-term">target: artifact analysis<br>status: ongoing<br>vector: dfir</div>
+  <div class="ph-inner">
+    <div class="ph-breadcrumb">frontline <span class="sep">/</span> research <span class="sep">/</span> execution artifacts</div>
+    <div class="ph-title-row">
+      <h1 class="ph-title">research notes<span class="ph-cursor">_</span></h1>
+      <div class="ph-meta">
+        <div class="ph-count">showing <span id="visible-count">0</span> articles</div>
+        <div class="ph-sub">evidence of execution &bull; forensic analysis &bull; dfir</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-inner">
+    <div class="search-wrap">
+      <span class="search-prompt">›</span>
+      <input id="search-input" class="search-input" type="text" placeholder="search articles..." autocomplete="off" spellcheck="false"/>
+    </div>
+    <div class="tag-filters">
+      <!-- ✏️ Add/remove tags to match your actual content -->
+      <button class="tag-pill active" data-tag="all">ALL</button>
+      <button class="tag-pill" data-tag="windows">windows</button>
+      <button class="tag-pill" data-tag="linux">linux</button>
+      <button class="tag-pill" data-tag="macos">macos</button>
+      <button class="tag-pill" data-tag="registry">registry</button>
+      <button class="tag-pill" data-tag="memory">memory</button>
+      <button class="tag-pill" data-tag="network">network</button>
+      <button class="tag-pill" data-tag="anti-forensics">anti-forensics</button>
+      <button class="tag-pill" data-tag="persistence">persistence</button>
+      <button class="tag-pill" data-tag="dfir">dfir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✏️ POSTS — duplicate .post-item for each article.
+     data-tags must be comma-separated and match the tag-pill values above. -->
+<div class="post-list-wrap">
+  <div class="no-results" id="no-results"><span>// no articles match that filter</span></div>
+
+  <a href="#" class="post-item" data-tags="windows,dfir,registry">
+    <div class="p-num">01</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.06.01</span>
+        <span class="p-os windows">WINDOWS</span>
+        <div class="p-tags"><span class="p-tag">dfir</span><span class="p-tag">registry</span></div>
+      </div>
+      <div class="p-artifact">PREFETCH FILES</div>
+      <div class="p-title">Proving Execution When the Event Logs Are Gone</div>
+      <div class="p-excerpt">
+        Prefetch persists long after logs are wiped. Deep dive into the .pf binary format,
+        extracting run count and last-eight timestamps, and what the file reference list
+        tells you about staging directories and lateral tool transfer.
+      </div>
+    </div>
+    <div class="p-time">~10 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="windows,registry,dfir">
+    <div class="p-num">02</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.05.14</span>
+        <span class="p-os windows">WINDOWS</span>
+        <div class="p-tags"><span class="p-tag">registry</span><span class="p-tag">dfir</span></div>
+      </div>
+      <div class="p-artifact">SHIMCACHE &amp; AMCACHE</div>
+      <div class="p-title">Shimcache vs Amcache: What Each Registry Hive Actually Proves</div>
+      <div class="p-excerpt">
+        Both record program execution, but their semantics differ critically — Shimcache proves
+        a binary existed and was seen by the OS; Amcache adds a SHA1 hash you can pivot on.
+        Side-by-side comparison with real investigation examples.
+      </div>
+    </div>
+    <div class="p-time">~12 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="windows,network,dfir">
+    <div class="p-num">03</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.04.28</span>
+        <span class="p-os windows">WINDOWS</span>
+        <div class="p-tags"><span class="p-tag">network</span><span class="p-tag">dfir</span></div>
+      </div>
+      <div class="p-artifact">SRUM DATABASE</div>
+      <div class="p-title">30 Days of Execution and Network History Nobody Cleared</div>
+      <div class="p-excerpt">
+        SRUM retains per-application network usage, CPU cycles, and energy data for 30-60 days.
+        Parsing SRUDB.dat with srum-dump, correlating app timelines with network events,
+        and recovering data even when Prefetch and logs have been wiped.
+      </div>
+    </div>
+    <div class="p-time">~9 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="windows,registry,dfir,persistence">
+    <div class="p-num">04</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.04.05</span>
+        <span class="p-os windows">WINDOWS</span>
+        <div class="p-tags"><span class="p-tag">registry</span><span class="p-tag">persistence</span></div>
+      </div>
+      <div class="p-artifact">BAM / DAM</div>
+      <div class="p-title">BAM/DAM: The Background Activity Monitor Nobody Talks About</div>
+      <div class="p-excerpt">
+        Background Activity Moderator lives in the SYSTEM hive and records the last execution
+        timestamp for every user-mode binary on the system. Survives reboots, never gets cleared
+        by standard log-wiping tools, and most threat actors don't know it exists.
+      </div>
+    </div>
+    <div class="p-time">~7 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="linux,dfir,anti-forensics">
+    <div class="p-num">05</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.03.20</span>
+        <span class="p-os linux">LINUX</span>
+        <div class="p-tags"><span class="p-tag">dfir</span><span class="p-tag">anti-forensics</span></div>
+      </div>
+      <div class="p-artifact">BASH_HISTORY / WTMP / AUTH.LOG</div>
+      <div class="p-title">Reconstructing Linux Execution After History Has Been Cleared</div>
+      <div class="p-excerpt">
+        When .bash_history is truncated and wtmp is zeroed, what survives? Examining auth.log
+        residuals, /proc artifacts from short-lived processes, journald entries, and lastlog
+        binary gaps that expose when a user session actually occurred.
+      </div>
+    </div>
+    <div class="p-time">~11 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="windows,dfir">
+    <div class="p-num">06</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.02.18</span>
+        <span class="p-os windows">WINDOWS</span>
+        <div class="p-tags"><span class="p-tag">dfir</span></div>
+      </div>
+      <div class="p-artifact">LNK FILES &amp; JUMP LISTS</div>
+      <div class="p-title">LNK Files as Execution Evidence: Staging Paths and Remote Share Access</div>
+      <div class="p-excerpt">
+        Windows creates LNK files automatically when a user opens a file — even from a USB
+        or remote share that no longer exists. Parsing the embedded volume serial, MAC address,
+        and NetBIOS name to reconstruct where tooling was loaded from during an intrusion.
+      </div>
+    </div>
+    <div class="p-time">~8 min</div>
+  </a>
+
+  <a href="#" class="post-item" data-tags="macos,dfir,memory">
+    <div class="p-num">07</div>
+    <div class="p-body">
+      <div class="p-top">
+        <span class="p-date">2025.01.30</span>
+        <span class="p-os macos">MACOS</span>
+        <div class="p-tags"><span class="p-tag">dfir</span><span class="p-tag">memory</span></div>
+      </div>
+      <div class="p-artifact">UNIFIED LOGS &amp; KNOWLEDGEC.DB</div>
+      <div class="p-title">macOS Execution Forensics: Unified Logs and the KnowledgeC Database</div>
+      <div class="p-excerpt">
+        macOS Unified Logs capture process launch, termination, and user interaction with
+        millisecond precision. Combining log show output with KnowledgeC.db app usage records
+        to build a complete execution timeline without relying on EDR telemetry.
+      </div>
+    </div>
+    <div class="p-time">~13 min</div>
+  </a>
+
+</div>
+
+<footer>
+  <span>frontline_ &mdash; evidence of execution research</span>
+  <div class="foot-links">
+    <a href="https://github.com/YOURUSERNAME" target="_blank" rel="noopener">github</a>
+    <a href="https://twitter.com/YOURHANDLE" target="_blank" rel="noopener">twitter</a>
+    <a href="mailto:you@example.com">contact</a>
+  </div>
+</footer>
+
+<script>
+  const searchInput = document.getElementById('search-input');
+  const tagPills    = document.querySelectorAll('.tag-pill');
+  const postItems   = document.querySelectorAll('.post-item');
+  const noResults   = document.getElementById('no-results');
+  const visCount    = document.getElementById('visible-count');
+
+  function filter() {
+    const q   = searchInput.value.toLowerCase().trim();
+    const tag = document.querySelector('.tag-pill.active')?.dataset.tag || 'all';
+    let visible = 0;
+    postItems.forEach(post => {
+      const tags    = post.dataset.tags.split(',');
+      const title   = post.querySelector('.p-title').textContent.toLowerCase();
+      const excerpt = post.querySelector('.p-excerpt').textContent.toLowerCase();
+      const art     = post.querySelector('.p-artifact').textContent.toLowerCase();
+      const matchTag    = tag === 'all' || tags.includes(tag);
+      const matchSearch = !q || title.includes(q) || excerpt.includes(q) || art.includes(q);
+      if (matchTag && matchSearch) { post.style.display=''; visible++; }
+      else post.style.display='none';
+    });
+    visCount.textContent = visible;
+    noResults.classList.toggle('visible', visible === 0);
+  }
+  tagPills.forEach(p => p.addEventListener('click', () => {
+    tagPills.forEach(x => x.classList.remove('active'));
+    p.classList.add('active'); filter();
+  }));
+  searchInput.addEventListener('input', filter);
+  filter();
+</script>
+</body>
+</html>
