@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artifact Library — Frontline DFIR</title>
+<meta name="description" content="A practitioner's reference of forensic artifacts: definitions, triage tips, and parsing steps for Prefetch, ShimCache, Amcache, $MFT, $UsnJrnl, ShellBags, SRUM, and Windows Event Logs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="status-strip">
+  <div class="wrap">
+    <span>EVIDENCE INTAKE: <span class="ok">WRITE-BLOCKED</span></span>
+    <span>SHA-256 VERIFIED · CHAIN OF CUSTODY INTACT</span>
+    <span id="utc-clock">UTC --:--:--</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <span class="led" aria-hidden="true"></span>
+      Frontline DFIR <small>// FIELD RESEARCH</small>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="blog.html">Blog</a></li>
+      <li><a href="artifacts.html" class="active">Artifacts</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">0x0200 // REFERENCE</p>
+    <h1>Artifact Library</h1>
+    <p>A working reference for Windows forensic artifacts. Each entry covers what the artifact is, how to triage it under time pressure, and a repeatable parsing workflow. Tooling references the Eric Zimmerman suite where applicable.</p>
+  </header>
+
+  <div class="filter-bar" role="toolbar" aria-label="Filter artifacts">
+    <button class="fbtn active" data-filter="all">All</button>
+    <button class="fbtn" data-filter="exec">Execution</button>
+    <button class="fbtn" data-filter="fs">Filesystem</button>
+    <button class="fbtn" data-filter="reg">Registry</button>
+    <button class="fbtn" data-filter="usr">User Activity</button>
+    <input type="search" id="artifact-search" placeholder="grep artifacts…" aria-label="Search artifacts">
+  </div>
+
+  <div id="artifact-list">
+
+  <!-- ===================== PREFETCH ===================== -->
+  <details class="artifact" data-cat="exec" open>
+    <summary>
+      <span class="tag exec">Execution</span>
+      <h3>Prefetch (.pf)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>Windows performance-optimization files that record application launches. Each .pf file stores the executable name, run count, up to eight most recent run timestamps (Win8+), referenced files and directories, and volume information. Strong evidence of program execution.</p>
+        <div class="src-path">C:\Windows\Prefetch\*.pf</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Sort by last run time first; recent execution of LOLBins (psexec, wmic, rundll32, certutil) from odd paths is a fast win.</li>
+          <li>An empty Prefetch folder on a workstation is itself suspicious — check if it was wiped or if the host is a server/SSD with prefetching disabled.</li>
+          <li>The hash in the filename encodes the executable's path — two .pf files for the same EXE name mean it ran from two locations.</li>
+          <li>Referenced-files list often exposes the payload an installer or loader touched.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect the Prefetch directory from the triage image or live host (KAPE target: <code>Prefetch</code>).</li>
+          <li>Parse with <code>PECmd.exe -d C:\Cases\Prefetch --csv C:\Cases\out</code> to process the whole directory.</li>
+          <li>Win10/11 prefetch is MAM-compressed; PECmd handles decompression automatically — older tools may not.</li>
+          <li>Review the timeline CSV for run timestamps; cross-reference run counts against ShimCache and Amcache.</li>
+          <li>Pivot on the files-referenced output to identify dropped payloads and DLLs loaded at launch.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== SHIMCACHE ===================== -->
+  <details class="artifact" data-cat="exec reg">
+    <summary>
+      <span class="tag exec">Execution</span>
+      <h3>ShimCache (AppCompatCache)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>The Application Compatibility Cache, stored in the SYSTEM registry hive. Records full file paths and the file's $SI last-modified time for executables the OS has examined. On Windows 8+ an entry proves the file existed at that path — not that it executed.</p>
+        <div class="src-path">SYSTEM\CurrentControlSet\Control\Session Manager\AppCompatCache</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Entries are only flushed to the registry on shutdown/reboot — a live hive may be missing the most recent activity. Pull volatile data or check hive transaction logs.</li>
+          <li>Report it as evidence of presence, not execution; corroborate with Prefetch or Amcache before claiming a binary ran.</li>
+          <li>Entry order is significant on some Windows versions — newer entries sit at the top.</li>
+          <li>Great for spotting renamed tools: the path survives even if the file was deleted.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Acquire the SYSTEM hive plus its transaction logs (<code>SYSTEM.LOG1</code>, <code>SYSTEM.LOG2</code>).</li>
+          <li>Replay dirty hives first — <code>AppCompatCacheParser</code> and registry tools handle this with the logs present.</li>
+          <li>Run <code>AppCompatCacheParser.exe -f SYSTEM --csv C:\Cases\out</code>.</li>
+          <li>Check entries in every ControlSet, not just the current one — older sets can hold deleted history.</li>
+          <li>Stack the output with Amcache and Prefetch results to build an execution-evidence matrix per binary.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== AMCACHE ===================== -->
+  <details class="artifact" data-cat="exec reg">
+    <summary>
+      <span class="tag exec">Execution</span>
+      <h3>Amcache.hve</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>A registry hive populated by application-compatibility processes. Its InventoryApplicationFile entries record full path, file size, version metadata, and a SHA-1 hash (of the first ~31MB) for executables observed on the system — including files that have since been deleted.</p>
+        <div class="src-path">C:\Windows\AppCompat\Programs\Amcache.hve</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>The free SHA-1 is the headline: pivot every unrecognized hash through VirusTotal or internal threat intel immediately.</li>
+          <li>Entry creation is event-driven (compatibility scans), so timestamps reflect inventory time, not first execution — be careful in reporting.</li>
+          <li>Hashes of large files are truncated at ~31MB of input; a mismatch with the file on disk isn't automatically tampering.</li>
+          <li>Look for unsigned binaries in user-writable paths (Downloads, Temp, ProgramData).</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect <code>Amcache.hve</code> and its .LOG transaction files from <code>C:\Windows\AppCompat\Programs\</code>.</li>
+          <li>Parse with <code>AmcacheParser.exe -f Amcache.hve -i --csv C:\Cases\out</code> (<code>-i</code> includes program entries).</li>
+          <li>Extract the SHA-1 column and batch-query your intel sources.</li>
+          <li>Join results against ShimCache/Prefetch by path to upgrade "present" findings toward "executed."</li>
+          <li>Review DriverBinary entries for suspicious or vulnerable drivers (BYOVD tradecraft).</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== $MFT ===================== -->
+  <details class="artifact" data-cat="fs">
+    <summary>
+      <span class="tag fs">Filesystem</span>
+      <h3>$MFT (Master File Table)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>The core NTFS metadata structure: one record per file and directory on the volume, holding names, sizes, timestamps ($STANDARD_INFORMATION and $FILE_NAME), and data run locations. Small files may be resident — stored entirely inside the MFT record itself.</p>
+        <div class="src-path">\\.\C:\$MFT  (volume root, hidden system file)</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Compare $SI vs $FN timestamps: $SI is trivially timestomped via API, $FN generally is not. Divergence is a red flag.</li>
+          <li>Deleted-but-not-overwritten records persist; an MFT pull recovers names and metadata of removed tooling.</li>
+          <li>Resident data means tiny files (scripts, configs, beacons under ~700 bytes) can be recovered straight from the MFT.</li>
+          <li>Filter on creation times within the intrusion window and paths like Temp, ProgramData, Public, and PerfLogs.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Acquire <code>$MFT</code> with a raw-capable collector (KAPE target: <code>$MFT</code>) — standard copy won't read it.</li>
+          <li>Parse with <code>MFTECmd.exe -f $MFT --csv C:\Cases\out</code>.</li>
+          <li>Generate a bodyfile or load the CSV into Timeline Explorer; filter to the incident window.</li>
+          <li>Flag records where $FN creation predates $SI creation, or where $SI has zeroed sub-second precision (common timestomp tell).</li>
+          <li>Cross-reference suspicious entries against $UsnJrnl to recover rename/delete history.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== USNJRNL ===================== -->
+  <details class="artifact" data-cat="fs">
+    <summary>
+      <span class="tag fs">Filesystem</span>
+      <h3>$UsnJrnl:$J (USN Change Journal)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>NTFS's change journal: an append-only log of file system operations (create, delete, rename, data overwrite, attribute change) with timestamps and reason codes. It records actions, not just final state — making it the volume's short-term memory.</p>
+        <div class="src-path">\$Extend\$UsnJrnl  (alternate data stream $J)</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Look for rapid create→rename→delete sequences — classic staging and cleanup behavior.</li>
+          <li>Journal records survive after the file itself is gone; this is often the only proof a tool ever existed.</li>
+          <li>Retention is typically days to weeks on a busy volume — collect it early before it rolls.</li>
+          <li>Mass FILE_DELETE + DATA_OVERWRITE reason codes in a tight window can mark ransomware detonation or wiper activity.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect the <code>$J</code> stream (KAPE target: <code>$J</code>); it's sparse, so expect a large logical size with smaller real data.</li>
+          <li>Parse with <code>MFTECmd.exe -f $J --csv C:\Cases\out</code> — supply <code>-m $MFT</code> as well to resolve full paths.</li>
+          <li>Filter by reason codes of interest: <code>FileCreate</code>, <code>FileDelete</code>, <code>RenameNewName</code>.</li>
+          <li>Reconstruct lifecycles for files of interest by following their MFT entry/sequence numbers through the journal.</li>
+          <li>Merge with the MFT timeline to expose timestomping and deleted-file activity.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== SHELLBAGS ===================== -->
+  <details class="artifact" data-cat="usr reg">
+    <summary>
+      <span class="tag usr">User Activity</span>
+      <h3>ShellBags</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>Registry structures that store Explorer folder-view preferences. As a side effect they record which folders a user account browsed interactively — including folders on removable media, network shares, and paths that have since been deleted.</p>
+        <div class="src-path">USRCLASS.DAT → Local Settings\Software\Microsoft\Windows\Shell\BagMRU</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Per-user artifact: pull <code>USRCLASS.DAT</code> (and <code>NTUSER.DAT</code>) for every account of interest, including local admin accounts attackers favor.</li>
+          <li>Evidence of interactive, hands-on-keyboard browsing — strong signal when distinguishing human operators from automated malware.</li>
+          <li>Traversal into staging paths (e.g. <code>C:\PerfLogs</code>, <code>C:\Users\Public</code>) or to UNC paths of other hosts maps lateral interest.</li>
+          <li>MRU ordering and timestamps let you sequence which folders were opened most recently.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect <code>USRCLASS.DAT</code> from <code>%LocalAppData%\Microsoft\Windows\</code> plus transaction logs for each account.</li>
+          <li>Parse with <code>SBECmd.exe -d C:\Cases\hives --csv C:\Cases\out</code> (or interactively in ShellBags Explorer).</li>
+          <li>Note First Interacted / Last Interacted timestamps and absolute paths, flagging deleted or removable-media paths.</li>
+          <li>Sequence folder access alongside logon sessions from event logs to attribute activity to a session.</li>
+          <li>Diff ShellBag paths against the current filesystem to enumerate folders the attacker removed.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== SRUM ===================== -->
+  <details class="artifact" data-cat="fs exec">
+    <summary>
+      <span class="tag fs">Filesystem</span>
+      <h3>SRUM (SRUDB.dat)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>The System Resource Usage Monitor, an ESE database recording roughly 30–60 days of per-application resource accounting: network bytes sent/received per app per hour, process CPU time, and the user SID responsible. Effectively built-in flight-recorder telemetry.</p>
+        <div class="src-path">C:\Windows\System32\sru\SRUDB.dat</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>Use network-usage tables to bound data exfiltration: bytes-sent per application per hour is hard evidence when flow logs are missing.</li>
+          <li>A high-upload entry from an unexpected binary (or a renamed archiver) is a fast exfil lead.</li>
+          <li>Data is flushed from memory to the database roughly hourly — the last hour before shutdown may be absent.</li>
+          <li>Attribution: each entry ties to a user SID, helping pin activity to a compromised account.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect <code>SRUDB.dat</code> plus the SOFTWARE hive (needed to resolve interface and profile IDs).</li>
+          <li>If the ESE database is dirty, repair it first: <code>esentutl /r sru /i</code> then <code>esentutl /p SRUDB.dat</code> on a working copy.</li>
+          <li>Parse with <code>SrumECmd.exe -f SRUDB.dat -r SOFTWARE --csv C:\Cases\out</code>.</li>
+          <li>Sort NetworkUsage output by bytes sent within the incident window; convert totals into exfil estimates.</li>
+          <li>Correlate spikes with Prefetch run times and firewall/proxy logs to identify the exfil channel.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ===================== EVENT LOGS ===================== -->
+  <details class="artifact" data-cat="usr exec">
+    <summary>
+      <span class="tag usr">User Activity</span>
+      <h3>Windows Event Logs (.evtx)</h3>
+      <span class="chev">▸</span>
+    </summary>
+    <div class="a-body">
+      <div class="a-section">
+        <h4>Definition</h4>
+        <p>The native Windows logging system: binary XML records across hundreds of channels covering authentication, service installs, scheduled tasks, PowerShell activity, RDP sessions, and more. The backbone of most intrusion timelines.</p>
+        <div class="src-path">C:\Windows\System32\winevt\Logs\*.evtx</div>
+      </div>
+      <div class="a-section">
+        <h4>Triage Tips</h4>
+        <ul>
+          <li>First-pass channels: Security, System, PowerShell/Operational, TaskScheduler, TerminalServices-LocalSessionManager, Sysmon if present.</li>
+          <li>High-value IDs: 4624/4625 (logons), 4672 (privileged logon), 7045 (service install), 4698 (scheduled task), 1102 (audit log cleared).</li>
+          <li>Event ID 1102 or large gaps in record numbers indicate log clearing — treat the gap itself as a finding and pivot to forwarded logs or VSS copies.</li>
+          <li>Type 3 logons with NTLM from workstation-to-workstation are a classic lateral movement signature.</li>
+        </ul>
+      </div>
+      <div class="a-section full">
+        <h4>Parsing Steps</h4>
+        <ol>
+          <li>Collect the full <code>winevt\Logs</code> directory (KAPE target: <code>EventLogs</code>) — don't cherry-pick channels at collection time.</li>
+          <li>Parse with <code>EvtxECmd.exe -d C:\Cases\Logs --csv C:\Cases\out</code> using the community maps for field normalization.</li>
+          <li>Load into Timeline Explorer; filter to the incident window and the high-value Event IDs above.</li>
+          <li>Build a logon-session table (4624 + LogonID) to anchor every other artifact to an authenticated session.</li>
+          <li>Check volume shadow copies for .evtx versions predating any log clearing.</li>
+        </ol>
+      </div>
+    </div>
+  </details>
+
+  </div><!-- /artifact-list -->
+
+  <p id="no-results" style="display:none; margin-top:32px; font-family:var(--mono); color:var(--faint); font-size:13px;">// no artifacts match — adjust the filter or search term</p>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="custody">
+      <span><b>SITE:</b> frontline-dfir</span>
+      <span><b>BUILD:</b> 2026.06.09</span>
+      <span><b>INTEGRITY:</b> verified</span>
+    </div>
+    <div class="foot-links">
+      <a href="index.html">Home</a>
+      <a href="blog.html">Blog</a>
+      <a href="artifacts.html">Artifact Library</a>
+      <a href="#">RSS</a>
+      <a href="#">Contact</a>
+    </div>
+    <p class="copyright">© 2026 Frontline DFIR. Research published for the defensive community.</p>
+  </div>
+</footer>
+
+<script>
+  // UTC clock
+  const clock = document.getElementById('utc-clock');
+  function tick() {
+    const d = new Date();
+    clock.textContent = 'UTC ' + d.toISOString().slice(11, 19);
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // Category filter + search
+  const buttons = document.querySelectorAll('.fbtn');
+  const search = document.getElementById('artifact-search');
+  const artifacts = document.querySelectorAll('.artifact');
+  const noResults = document.getElementById('no-results');
+  let activeFilter = 'all';
+
+  function applyFilters() {
+    const q = search.value.trim().toLowerCase();
+    let visible = 0;
+    artifacts.forEach(a => {
+      const cats = a.dataset.cat.split(' ');
+      const matchesCat = activeFilter === 'all' || cats.includes(activeFilter);
+      const matchesText = !q || a.textContent.toLowerCase().includes(q);
+      const show = matchesCat && matchesText;
+      a.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    noResults.style.display = visible === 0 ? 'block' : 'none';
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.filter;
+      applyFilters();
+    });
+  });
+  search.addEventListener('input', applyFilters);
+</script>
+
+</body>
+</html>

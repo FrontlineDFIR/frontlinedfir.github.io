@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Blog — Frontline DFIR</title>
+<meta name="description" content="Hands-on DFIR research: artifact analysis, intrusion case studies, and triage methodology from Frontline DFIR.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="status-strip">
+  <div class="wrap">
+    <span>EVIDENCE INTAKE: <span class="ok">WRITE-BLOCKED</span></span>
+    <span>SHA-256 VERIFIED · CHAIN OF CUSTODY INTACT</span>
+    <span id="utc-clock">UTC --:--:--</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <span class="led" aria-hidden="true"></span>
+      Frontline DFIR <small>// FIELD RESEARCH</small>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="blog.html" class="active">Blog</a></li>
+      <li><a href="artifacts.html">Artifacts</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <header class="page-head">
+    <p class="eyebrow">0x0100 // RESEARCH LOG</p>
+    <h1>The Blog</h1>
+    <p>Artifact deep-dives, sanitized case studies, and methodology notes. Everything here is written to be reproducible: source paths, tool versions, and the reasoning behind each conclusion.</p>
+  </header>
+
+  <div class="post-list">
+
+    <article class="post-row">
+      <time datetime="2026-06-02">2026-06-02</time>
+      <div>
+        <h2><a href="#">ShimCache Lies: When Execution Evidence Isn't</a></h2>
+        <p>AppCompatCache entries are routinely reported as "evidence of execution," but on modern Windows they prove presence, not execution. We walk through three engagements where that distinction changed the finding — and the corroborating artifacts that settled each one.</p>
+      </div>
+      <div class="tags"><span class="tag exec">Execution</span><span class="tag reg">Registry</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-05-19">2026-05-19</time>
+      <div>
+        <h2><a href="#">SRUM: The Database Attackers Forget About</a></h2>
+        <p>The System Resource Usage Monitor quietly records per-application network bytes and process accounting — and it survives anti-forensics surprisingly often. We use SRUDB.dat to bound exfiltration volume in a case where flow logs were gone.</p>
+      </div>
+      <div class="tags"><span class="tag fs">Filesystem</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-05-05">2026-05-05</time>
+      <div>
+        <h2><a href="#">First Four Hours: A Ransomware Triage Playbook</a></h2>
+        <p>When the estate is actively encrypting, full disk images are a luxury. Here's the collection order we use — volatile data, targeted triage packages, then imaging — and the decision points for skipping steps without losing the case.</p>
+      </div>
+      <div class="tags"><span class="tag usr">Methodology</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-04-21">2026-04-21</time>
+      <div>
+        <h2><a href="#">$UsnJrnl vs. Timestomping: The Journal Remembers</a></h2>
+        <p>Attackers who timestomp $STANDARD_INFORMATION rarely touch the USN change journal. A practical workflow for cross-referencing $J records against MFT timestamps to expose manipulated files.</p>
+      </div>
+      <div class="tags"><span class="tag fs">Filesystem</span><span class="tag exec">Anti-Forensics</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-04-07">2026-04-07</time>
+      <div>
+        <h2><a href="#">ShellBags as a Map of Attacker Hands-on-Keyboard</a></h2>
+        <p>Folder traversal evidence from ShellBags reconstructed an attacker's staging directory hunt across three hosts — including folders that no longer exist. Parsing notes and a timeline-building approach.</p>
+      </div>
+      <div class="tags"><span class="tag usr">User Activity</span><span class="tag reg">Registry</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-03-24">2026-03-24</time>
+      <div>
+        <h2><a href="#">Event Log Triage: The Eight Channels That Matter First</a></h2>
+        <p>A modern Windows host carries 400+ event log channels. In the first pass, eight of them answer most intrusion questions. Which ones, which Event IDs, and the EvtxECmd maps we use to normalize them.</p>
+      </div>
+      <div class="tags"><span class="tag usr">Methodology</span></div>
+    </article>
+
+    <article class="post-row">
+      <time datetime="2026-03-10">2026-03-10</time>
+      <div>
+        <h2><a href="#">Amcache InventoryApplicationFile: SHA-1 for Free</a></h2>
+        <p>Amcache.hve hands you the SHA-1 of executables that touched the system — even deleted ones. How we pivot those hashes into threat intel, and the conditions under which entries are (and aren't) written.</p>
+      </div>
+      <div class="tags"><span class="tag exec">Execution</span><span class="tag reg">Registry</span></div>
+    </article>
+
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="custody">
+      <span><b>SITE:</b> frontline-dfir</span>
+      <span><b>BUILD:</b> 2026.06.09</span>
+      <span><b>INTEGRITY:</b> verified</span>
+    </div>
+    <div class="foot-links">
+      <a href="index.html">Home</a>
+      <a href="blog.html">Blog</a>
+      <a href="artifacts.html">Artifact Library</a>
+      <a href="#">RSS</a>
+      <a href="#">Contact</a>
+    </div>
+    <p class="copyright">© 2026 Frontline DFIR. Research published for the defensive community.</p>
+  </div>
+</footer>
+
+<script>
+  const clock = document.getElementById('utc-clock');
+  function tick() {
+    const d = new Date();
+    clock.textContent = 'UTC ' + d.toISOString().slice(11, 19);
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+
+</body>
+</html>
