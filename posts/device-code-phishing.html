@@ -12,14 +12,6 @@
 </head>
 <body>
 
-<div class="status-strip">
-  <div class="wrap">
-    <span>EVIDENCE INTAKE: <span class="ok">WRITE-BLOCKED</span></span>
-    <span>SHA-256 VERIFIED · CHAIN OF CUSTODY INTACT</span>
-    <span id="utc-clock">UTC --:--:--</span>
-  </div>
-</div>
-
 <nav class="nav">
   <div class="wrap">
     <a class="brand" href="../index.html">
@@ -348,16 +340,6 @@ AuditLogs
     <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
   </div>
 </footer>
-
-<script>
-  const clock = document.getElementById('utc-clock');
-  function tick() {
-    const d = new Date();
-    clock.textContent = 'UTC ' + d.toISOString().slice(11, 19);
-  }
-  tick();
-  setInterval(tick, 1000);
-</script>
 
 </body>
 </html>

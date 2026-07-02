@@ -12,14 +12,6 @@
 </head>
 <body>
 
-<div class="status-strip">
-  <div class="wrap">
-    <span>EVIDENCE INTAKE: <span class="ok">WRITE-BLOCKED</span></span>
-    <span>SHA-256 VERIFIED · CHAIN OF CUSTODY INTACT</span>
-    <span id="utc-clock">UTC --:--:--</span>
-  </div>
-</div>
-
 <nav class="nav">
   <div class="wrap">
     <a class="brand" href="index.html">
@@ -55,10 +47,10 @@
     </article>
 
     <article class="post-row">
-      <time datetime="2026-06-01">2026-06-01</time>
+      <time datetime="2026-03-29">2026-03-29</time>
       <div>
-        <h2><a href="#">My Top 5 DFIR Artifacts and How to Parse Them</a></h2>
-        <p>The five Windows artifacts I reach for first in an investigation. What each one tells you, where it lives on disk, and the exact tools and commands to parse it into something you can actually analyze.</p>
+        <h2><a href="posts/top-5-dfir-artifacts.html">Five Windows Forensic Artifacts Every Analyst Should Know</a></h2>
+        <p>What they tell you, where to find them, and exactly how to parse them with Eric Zimmerman's tools. The five artifacts I keep coming back to on real investigations.</p>
       </div>
       <div class="tags"><span class="tag exec">DFIR</span><span class="tag fs">Windows</span></div>
     </article>
@@ -93,16 +85,6 @@
     <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
   </div>
 </footer>
-
-<script>
-  const clock = document.getElementById('utc-clock');
-  function tick() {
-    const d = new Date();
-    clock.textContent = 'UTC ' + d.toISOString().slice(11, 19);
-  }
-  tick();
-  setInterval(tick, 1000);
-</script>
 
 </body>
 </html>

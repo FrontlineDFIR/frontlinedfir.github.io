@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Five Windows Forensic Artifacts Every Analyst Should Know — Frontline DFIR</title>
+<meta name="description" content="What five core Windows forensic artifacts tell you, where to find them, and exactly how to parse them with Eric Zimmerman's tools.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <span class="led" aria-hidden="true"></span>
+      Frontline DFIR <small>// FIELD RESEARCH</small>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../blog.html" class="active">Blog</a></li>
+      <li><a href="../artifacts.html">Artifacts</a></li>
+      <li><a href="../about.html">About</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="wrap">
+  <article class="post-article">
+    <a class="back-link" href="../blog.html">&larr; back to the blog</a>
+
+    <header>
+      <div class="post-tags">
+        <span class="tag exec">DFIR</span>
+        <span class="tag fs">Windows</span>
+      </div>
+      <h1 class="page-head" style="padding:18px 0 0;">Five Windows Forensic Artifacts Every Analyst Should Know</h1>
+      <p class="post-lede">
+        What they tell you, where to find them, and exactly how to parse them.
+      </p>
+      <p class="post-meta">March 29, 2026 &middot; 8 min &middot; Jonathan Lewter</p>
+    </header>
+
+    <div class="post-body">
+      <p>
+        When I first started getting into Windows forensics, the number of artifacts I was
+        supposed to know felt ridiculous. Prefetch, MFT, Shimcache, Amcache, Registry hives,
+        event logs, the list never seemed to end. And nobody was really telling me which
+        ones actually mattered in practice versus which ones were just good to know about
+        theoretically.
+      </p>
+      <p>
+        So this post is what I wish someone had handed me early on. These are the five
+        artifacts I keep coming back to on real investigations. Not because they're the most
+        obscure or impressive, but because they're reliable, well-supported by tooling, and
+        between them they answer most of the questions you're going to have on a Windows
+        case.
+      </p>
+      <p>
+        Everything here uses Eric Zimmerman's tools. If you're doing Windows forensics and
+        you're not already using EZ Tools, that's your first homework assignment. Head to
+        <a href="https://ericzimmerman.github.io" target="_blank" rel="noopener noreferrer">ericzimmerman.github.io</a>
+        and grab them. They're free and they're the industry standard.
+      </p>
+
+      <h2>1. Prefetch Files</h2>
+      <p><strong>What it tells you:</strong> A program ran on this machine, when it last ran, how many times it's been run, and what files it touched during execution.</p>
+      <p><strong>Where to find it:</strong> <code>C:\Windows\Prefetch\</code>, files end in <code>.pf</code></p>
+      <p>
+        Prefetch is usually one of the first places I look when I need to answer the question
+        "was this actually executed?" Even if the malware has been deleted off the system, the
+        Prefetch file might still be sitting there telling you exactly when it ran. That's
+        incredibly useful.
+      </p>
+      <p>
+        A few things worth knowing before you dig in. Prefetch is enabled by default on
+        workstations but disabled on servers, so don't panic when it's missing on a server
+        endpoint, that's normal. Windows also only keeps the most recent 128 Prefetch files,
+        so on a busy system older ones will get rotated out. And the filename format,
+        <code>EXECUTABLENAME-HASH.pf</code>, the hash is based on the path the binary ran
+        from. So if the same executable ran from two different locations, you'll see two
+        separate Prefetch files. That detail actually matters a lot when you're hunting for
+        masquerading.
+      </p>
+      <p><strong>How to parse it:</strong></p>
+      <pre><code>PECmd.exe -f "C:\Windows\Prefetch\POWERSHELL.EXE-022A1004.pf"</code></pre>
+      <p>To parse everything in the Prefetch directory at once and dump it to CSV:</p>
+      <pre><code>PECmd.exe -d "C:\Windows\Prefetch" --csv "C:\output" --csvf prefetch_results.csv</code></pre>
+      <p>
+        When you're looking at the output, focus on three things: the last run time, the run
+        count, and the files referenced section. A run count of 1 on something suspicious is
+        worth flagging. The files referenced list can point you toward staging directories or
+        dropped payloads that the process touched during execution, stuff you might not have
+        found otherwise.
+      </p>
+
+      <h2>2. The Master File Table ($MFT)</h2>
+      <p><strong>What it tells you:</strong> Everything about every file and directory on an NTFS volume, filenames, timestamps, file sizes, and whether something has been deleted.</p>
+      <p><strong>Where to find it:</strong> <code>$MFT</code> lives at the root of every NTFS volume. You can't just browse to it, you'll need to collect it with something like FTK Imager, KAPE, or Velociraptor.</p>
+      <p>
+        The MFT is the ground truth for file system activity on Windows. If a file ever
+        existed on this volume, there's a record of it in the MFT. Even deleted files leave an
+        entry behind until that space gets reused, and on a lot of systems, especially ones
+        that aren't under heavy load, that can take a while.
+      </p>
+      <p>
+        Here's something that trips up a lot of newer analysts: Windows timestamps are not
+        trustworthy on their own. Attackers use timestomping tools to backdate files and make
+        them look like they've been on the system forever. The timestamps you see in
+        Explorer, those come from the <code>$STANDARD_INFORMATION</code> attribute, and they
+        can be manipulated pretty easily. But every file also has a <code>$FILE_NAME</code>
+        attribute with its own set of timestamps, and those are much harder to fake without
+        leaving traces. When you're in MFTECmd output and you see a big gap between the two
+        sets of timestamps on the same file, that's a red flag worth digging into.
+      </p>
+      <p><strong>How to parse it:</strong></p>
+      <pre><code>MFTECmd.exe -f "C:\Evidence\$MFT" --csv "C:\output" --csvf mft_results.csv</code></pre>
+      <p><strong>What to pay attention to:</strong></p>
+      <ul>
+        <li>Files showing up in <code>%TEMP%</code>, <code>%APPDATA%</code>, <code>C:\ProgramData</code>, or <code>C:\Users\Public</code>, these are classic attacker-favored directories because they're writable without admin rights.</li>
+        <li>Timestamp mismatches between <code>$STANDARD_INFORMATION</code> and <code>$FILE_NAME</code>, possible timestomping.</li>
+        <li>Entries marked <code>IsDeleted = True</code>, the file is gone but the metadata is still there.</li>
+        <li>Executables or DLLs sitting in weird places, a .exe in a user's Downloads or AppData folder that has no business being there.</li>
+      </ul>
+
+      <h2>3. Registry Hives</h2>
+      <p><strong>What it tells you:</strong> Basically everything about the system and its users, installed software, USB devices that have been connected, recently accessed files, what's set to run at startup, local account information, and a lot more.</p>
+      <p><strong>Where to find them:</strong></p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Hive</th><th>Path</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>SYSTEM</td><td><code>C:\Windows\System32\config\SYSTEM</code></td></tr>
+            <tr><td>SOFTWARE</td><td><code>C:\Windows\System32\config\SOFTWARE</code></td></tr>
+            <tr><td>SAM</td><td><code>C:\Windows\System32\config\SAM</code></td></tr>
+            <tr><td>SECURITY</td><td><code>C:\Windows\System32\config\SECURITY</code></td></tr>
+            <tr><td>NTUSER.DAT</td><td><code>C:\Users\&lt;username&gt;\NTUSER.DAT</code></td></tr>
+            <tr><td>UsrClass.dat</td><td><code>C:\Users\&lt;username&gt;\AppData\Local\Microsoft\Windows\UsrClass.dat</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The Registry is one of those artifacts that feels overwhelming at first because there
+        are hundreds of forensically relevant keys spread across multiple hives. The trick is
+        knowing which keys matter most for the type of investigation you're running.
+        Persistence hunting? Go straight to the Run keys. USB investigation? Hit USBSTOR.
+        Trying to figure out what documents a user opened recently? RecentDocs.
+      </p>
+      <p><strong>How to parse it:</strong></p>
+      <p>The fastest way to hit all the high-value keys in one shot is RECmd with a batch file:</p>
+      <pre><code>RECmd.exe -d "C:\Evidence\Registry" --bn BatchExamples\kroll_batch.reb --csv "C:\output"</code></pre>
+      <p>
+        The Kroll batch file covers most of the forensically relevant keys out of the box. If
+        you want to dig into a specific key, say, UserAssist for GUI execution history, you
+        can query it directly:
+      </p>
+      <pre><code>RECmd.exe -f "C:\Evidence\NTUSER.DAT" --kn "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\UserAssist" --csv "C:\output"</code></pre>
+      <p>If you prefer a GUI, RegistryExplorer is excellent for browsing interactively.</p>
+      <p><strong>Keys to bookmark:</strong></p>
+      <ul>
+        <li><strong>Persistence:</strong> <code>HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run</code> and <code>RunOnce</code></li>
+        <li><strong>USB devices:</strong> <code>HKLM\SYSTEM\CurrentControlSet\Enum\USBSTOR</code></li>
+        <li><strong>Recent documents:</strong> <code>HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs</code></li>
+        <li><strong>Typed URLs:</strong> <code>HKCU\SOFTWARE\Microsoft\Internet Explorer\TypedURLs</code></li>
+        <li><strong>GUI execution history:</strong> <code>HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\UserAssist</code></li>
+      </ul>
+
+      <h2>4. USN Journal ($UsnJrnl)</h2>
+      <p><strong>What it tells you:</strong> A chronological log of every file system change on the volume, creations, deletions, renames, modifications, attribute changes. Think of it as a running changelog for the file system.</p>
+      <p><strong>Where to find it:</strong> <code>$Extend\$UsnJrnl:$J</code>, lives on every NTFS volume alongside the MFT. You'll need a forensic collection tool to grab it.</p>
+      <p>
+        This is the artifact that gives you sequencing. The MFT can tell you a file existed,
+        the USN Journal tells you the order things happened in. Did the attacker drop a file,
+        execute it, then delete it? The journal captured all three events. Did a new directory
+        get created right before a bunch of files appeared in it? Journal has that too.
+      </p>
+      <p>
+        It's also really useful for recovering evidence of deleted files. The MFT entry for a
+        deleted file can get overwritten pretty quickly on a busy system. But the USN Journal
+        entry recording that deletion sticks around longer, the journal is circular and
+        overwrites itself, but the rotation is different from the MFT.
+      </p>
+      <p>
+        One thing to keep in mind: on a very active system, the journal might only cover the
+        last few hours. On a quieter endpoint it could go back days or even weeks. It varies a
+        lot.
+      </p>
+      <p><strong>How to parse it:</strong></p>
+      <p>MFTECmd handles the USN Journal too:</p>
+      <pre><code>MFTECmd.exe -f "C:\Evidence\$J" --csv "C:\output" --csvf usn_results.csv</code></pre>
+      <p>To look for a specific filename:</p>
+      <pre><code>MFTECmd.exe -f "C:\Evidence\$J" --csv "C:\output" --csvf usn_results.csv --fn "malware.exe"</code></pre>
+      <p><strong>What to look for:</strong></p>
+      <ul>
+        <li>A <code>FileCreate</code> entry followed almost immediately by a <code>FileDelete</code>, classic dropper behavior, something was written and then cleaned up.</li>
+        <li>Rename events, renaming a binary is one of the oldest tricks for masquerading as a legitimate process.</li>
+        <li>Activity in staging directories, cross-reference with MFT entries to build a complete picture.</li>
+      </ul>
+
+      <h2>5. Shellbags</h2>
+      <p><strong>What it tells you:</strong> Which folders a user opened in Windows Explorer, including folders on external drives, network shares, and folders that no longer exist on the system.</p>
+      <p><strong>Where to find them:</strong> Stored in the Registry under two locations:</p>
+      <ul>
+        <li><code>HKCU\SOFTWARE\Microsoft\Windows\Shell\BagMRU</code> and <code>Bags</code> (in NTUSER.DAT)</li>
+        <li><code>HKCU\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU</code> (in UsrClass.dat)</li>
+      </ul>
+      <p>
+        Shellbags are one of my favorite artifacts for proving user intent. If someone tells
+        you they never accessed a particular folder or plugged in an external drive,
+        Shellbags can very quickly say otherwise. They persist even after the folder or drive
+        is gone. The system remembers that you opened it regardless of whether it's still
+        there.
+      </p>
+      <p>
+        They're also great for lateral movement investigations. If a user browsed to a
+        network share, <code>\\FILESERVER\Finance</code>, for example, that path gets
+        recorded in Shellbags. That can help you understand which systems an insider threat or
+        compromised account was poking around on.
+      </p>
+      <p><strong>How to parse it:</strong></p>
+      <p>Use SBECmd:</p>
+      <pre><code>SBECmd.exe -d "C:\Evidence\Registry" --csv "C:\output" --csvf shellbags.csv</code></pre>
+      <p>For a live system targeting the current user:</p>
+      <pre><code>SBECmd.exe -l --csv "C:\output" --csvf shellbags.csv</code></pre>
+      <p><strong>What to look for:</strong></p>
+      <ul>
+        <li>External drive paths like <code>E:\</code> or <code>F:\</code>, someone plugged something in and browsed it.</li>
+        <li>Network share paths, <code>\\SERVERNAME\sharename</code>, tells you what remote resources they accessed.</li>
+        <li>Paths that no longer exist, if the folder is gone but Shellbags recorded it, that absence is actually evidence.</li>
+        <li>First and last interaction timestamps, useful for building a timeline around a specific event.</li>
+      </ul>
+
+      <h2>How These Five Fit Together</h2>
+      <p>Here's the mental model I use when I'm starting a Windows investigation:</p>
+      <ul>
+        <li><strong>Prefetch</strong> &rarr; Did this binary actually run?</li>
+        <li><strong>MFT</strong> &rarr; What files existed and when?</li>
+        <li><strong>USN Journal</strong> &rarr; What was the order of events?</li>
+        <li><strong>Registry</strong> &rarr; What persisted, what devices connected, what did the user open?</li>
+        <li><strong>Shellbags</strong> &rarr; Where did the user browse?</li>
+      </ul>
+      <p>
+        No single artifact gives you the full picture. But these five together cover
+        execution evidence, file system history, a timeline, persistence, and user behavior.
+        That's the foundation of most Windows investigations.
+      </p>
+      <p>
+        Get comfortable with these and you'll be in a much better position than most people
+        just starting out in the field.
+      </p>
+
+      <h3>Tools referenced</h3>
+      <ul class="ref-list">
+        <li>Eric Zimmerman's Tools, PECmd, MFTECmd, RECmd, SBECmd, RegistryExplorer. <a href="https://ericzimmerman.github.io" target="_blank" rel="noopener noreferrer">ericzimmerman.github.io</a></li>
+        <li>KAPE, artifact collection.</li>
+      </ul>
+
+      <a class="back-link" href="../blog.html">&larr; back to the blog</a>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="custody">
+      <span><b>SITE:</b> frontline-dfir</span>
+      <span><b>BUILD:</b> 2026.07.01</span>
+      <span><b>INTEGRITY:</b> verified</span>
+    </div>
+    <div class="foot-links">
+      <a href="../index.html">Home</a>
+      <a href="../blog.html">Blog</a>
+      <a href="../artifacts.html">Artifact Library</a>
+      <a href="../about.html">About</a>
+      <a href="mailto:jlewcareer@gmail.com">Contact</a>
+    </div>
+    <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
+  </div>
+</footer>
+
+</body>
+</html>
