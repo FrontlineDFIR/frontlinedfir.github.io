@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Research Blog — Frontline DFIR</title>
-<meta name="description" content="Hands-on DFIR research: artifact analysis, intrusion case studies, and triage methodology from Frontline DFIR.">
+<meta name="description" content="Hands-on DFIR research from Jonathan Lewter: artifact analysis, identity attack analysis, and triage methodology.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -30,6 +30,7 @@
       <li><a href="index.html">Home</a></li>
       <li><a href="blog.html" class="active">Blog</a></li>
       <li><a href="artifacts.html">Artifacts</a></li>
+      <li><a href="about.html">About</a></li>
     </ul>
   </div>
 </nav>
@@ -39,72 +40,36 @@
   <header class="page-head">
     <p class="eyebrow">0x0100 // RESEARCH LOG</p>
     <h1>The Blog</h1>
-    <p>Artifact deep-dives, sanitized case studies, and methodology notes. Everything here is written to be reproducible: source paths, tool versions, and the reasoning behind each conclusion.</p>
+    <p>Artifact deep-dives, identity attack analysis, and methodology notes. Everything here is written to be reproducible: source paths, tool versions, and the reasoning behind each conclusion.</p>
   </header>
 
   <div class="post-list">
 
     <article class="post-row">
-      <time datetime="2026-06-02">2026-06-02</time>
+      <time datetime="2026-06-20">2026-06-20</time>
       <div>
-        <h2><a href="#">ShimCache Lies: When Execution Evidence Isn't</a></h2>
-        <p>AppCompatCache entries are routinely reported as "evidence of execution," but on modern Windows they prove presence, not execution. We walk through three engagements where that distinction changed the finding — and the corroborating artifacts that settled each one.</p>
+        <h2><a href="posts/device-code-phishing.html">Demystifying Device Code Phishing</a></h2>
+        <p>If you work the SOC queue at a Microsoft 365 shop, device code phishing is one you should be able to recognize on sight. A breakdown of how the OAuth device authorization flow gets abused, what it looks like in the sign-in logs, and how to detect and shut it down.</p>
       </div>
-      <div class="tags"><span class="tag exec">Execution</span><span class="tag reg">Registry</span></div>
+      <div class="tags"><span class="tag usr">Identity</span><span class="tag">Phishing</span><span class="tag">Azure</span></div>
     </article>
 
     <article class="post-row">
-      <time datetime="2026-05-19">2026-05-19</time>
+      <time datetime="2026-06-01">2026-06-01</time>
       <div>
-        <h2><a href="#">SRUM: The Database Attackers Forget About</a></h2>
-        <p>The System Resource Usage Monitor quietly records per-application network bytes and process accounting — and it survives anti-forensics surprisingly often. We use SRUDB.dat to bound exfiltration volume in a case where flow logs were gone.</p>
+        <h2><a href="#">My Top 5 DFIR Artifacts and How to Parse Them</a></h2>
+        <p>The five Windows artifacts I reach for first in an investigation. What each one tells you, where it lives on disk, and the exact tools and commands to parse it into something you can actually analyze.</p>
       </div>
-      <div class="tags"><span class="tag fs">Filesystem</span></div>
+      <div class="tags"><span class="tag exec">DFIR</span><span class="tag fs">Windows</span></div>
     </article>
 
-    <article class="post-row">
-      <time datetime="2026-05-05">2026-05-05</time>
+    <article class="post-row soon">
+      <time>&mdash;</time>
       <div>
-        <h2><a href="#">First Four Hours: A Ransomware Triage Playbook</a></h2>
-        <p>When the estate is actively encrypting, full disk images are a luxury. Here's the collection order we use — volatile data, targeted triage packages, then imaging — and the decision points for skipping steps without losing the case.</p>
+        <h2><a href="#" tabindex="-1">More research in progress</a></h2>
+        <p>New writeups land here as they're finished. Check back soon.</p>
       </div>
-      <div class="tags"><span class="tag usr">Methodology</span></div>
-    </article>
-
-    <article class="post-row">
-      <time datetime="2026-04-21">2026-04-21</time>
-      <div>
-        <h2><a href="#">$UsnJrnl vs. Timestomping: The Journal Remembers</a></h2>
-        <p>Attackers who timestomp $STANDARD_INFORMATION rarely touch the USN change journal. A practical workflow for cross-referencing $J records against MFT timestamps to expose manipulated files.</p>
-      </div>
-      <div class="tags"><span class="tag fs">Filesystem</span><span class="tag exec">Anti-Forensics</span></div>
-    </article>
-
-    <article class="post-row">
-      <time datetime="2026-04-07">2026-04-07</time>
-      <div>
-        <h2><a href="#">ShellBags as a Map of Attacker Hands-on-Keyboard</a></h2>
-        <p>Folder traversal evidence from ShellBags reconstructed an attacker's staging directory hunt across three hosts — including folders that no longer exist. Parsing notes and a timeline-building approach.</p>
-      </div>
-      <div class="tags"><span class="tag usr">User Activity</span><span class="tag reg">Registry</span></div>
-    </article>
-
-    <article class="post-row">
-      <time datetime="2026-03-24">2026-03-24</time>
-      <div>
-        <h2><a href="#">Event Log Triage: The Eight Channels That Matter First</a></h2>
-        <p>A modern Windows host carries 400+ event log channels. In the first pass, eight of them answer most intrusion questions. Which ones, which Event IDs, and the EvtxECmd maps we use to normalize them.</p>
-      </div>
-      <div class="tags"><span class="tag usr">Methodology</span></div>
-    </article>
-
-    <article class="post-row">
-      <time datetime="2026-03-10">2026-03-10</time>
-      <div>
-        <h2><a href="#">Amcache InventoryApplicationFile: SHA-1 for Free</a></h2>
-        <p>Amcache.hve hands you the SHA-1 of executables that touched the system — even deleted ones. How we pivot those hashes into threat intel, and the conditions under which entries are (and aren't) written.</p>
-      </div>
-      <div class="tags"><span class="tag exec">Execution</span><span class="tag reg">Registry</span></div>
+      <div class="tags"></div>
     </article>
 
   </div>
@@ -115,17 +80,17 @@
   <div class="wrap">
     <div class="custody">
       <span><b>SITE:</b> frontline-dfir</span>
-      <span><b>BUILD:</b> 2026.06.09</span>
+      <span><b>BUILD:</b> 2026.07.01</span>
       <span><b>INTEGRITY:</b> verified</span>
     </div>
     <div class="foot-links">
       <a href="index.html">Home</a>
       <a href="blog.html">Blog</a>
       <a href="artifacts.html">Artifact Library</a>
-      <a href="#">RSS</a>
-      <a href="#">Contact</a>
+      <a href="about.html">About</a>
+      <a href="mailto:jlewcareer@gmail.com">Contact</a>
     </div>
-    <p class="copyright">© 2026 Frontline DFIR. Research published for the defensive community.</p>
+    <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
   </div>
 </footer>
 

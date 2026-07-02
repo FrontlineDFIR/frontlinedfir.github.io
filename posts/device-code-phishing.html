@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demystifying Device Code Phishing — Frontline DFIR</title>
+<meta name="description" content="What the device code flow is, how attackers abuse it against Microsoft 365 tenants, what it looks like in your sign-in logs, and how to respond and block it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<div class="status-strip">
+  <div class="wrap">
+    <span>EVIDENCE INTAKE: <span class="ok">WRITE-BLOCKED</span></span>
+    <span>SHA-256 VERIFIED · CHAIN OF CUSTODY INTACT</span>
+    <span id="utc-clock">UTC --:--:--</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="../index.html">
+      <span class="led" aria-hidden="true"></span>
+      Frontline DFIR <small>// FIELD RESEARCH</small>
+    </a>
+    <ul class="nav-links">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../blog.html" class="active">Blog</a></li>
+      <li><a href="../artifacts.html">Artifacts</a></li>
+      <li><a href="../about.html">About</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="wrap">
+  <article class="post-article">
+    <a class="back-link" href="../blog.html">&larr; back to the blog</a>
+
+    <header>
+      <div class="post-tags">
+        <span class="tag usr">Identity</span>
+        <span class="tag">Phishing</span>
+        <span class="tag">Azure</span>
+      </div>
+      <h1 class="page-head" style="padding:18px 0 0;">Demystifying Device Code Phishing</h1>
+      <p class="post-lede">
+        If you work the SOC queue at a Microsoft 365 shop, device code phishing is one you
+        should be able to recognize on sight. It's been showing up across the industry for
+        almost two years now. Storm-2372 has been running it since August 2024. APT29 has
+        been attributed alongside it. In early 2026, Huntress reported a campaign that hit
+        more than 340 Microsoft 365 tenants in five countries.
+      </p>
+    </header>
+
+    <div class="post-body">
+      <p>
+        It keeps working because it's sneaky. The user lands on the real Microsoft login
+        page. The MFA prompt is real. The cert is valid. There's no malware to find on the
+        endpoint. And the tokens the attacker walks away with keep working even after the
+        user resets their password, because OAuth refresh tokens are independent of the
+        password and stay valid until they're explicitly revoked or expire by policy.
+      </p>
+      <p>
+        This post walks through what the device code flow actually is, how the attack abuses
+        it, what it looks like in your logs, and what to do when you spot it. The technical
+        context up front matters because once you understand what the flow is supposed to do,
+        the abuse pattern is obvious.
+      </p>
+
+      <h2>What device code flow is and why it exists</h2>
+      <p>
+        The "device code flow" is a sign-in method built into Microsoft Entra ID and most
+        other identity systems. It exists for one specific problem: how do you sign into
+        something on a device that has no good way to handle a normal login? Smart TVs, IoT
+        gadgets, conference room systems, command-line tools. Stuff with no keyboard, or no
+        browser, or both. Typing a password and a six-digit MFA code into a Roku remote is
+        brutal, so the flow lets that device hand off the actual sign-in to your phone or
+        laptop instead.
+      </p>
+      <p>Here's how it's supposed to go:</p>
+      <ol>
+        <li>Your smart TV (or whatever device is signing in) asks Entra ID for a sign-in code.</li>
+        <li>Entra ID hands back a short user code, like <code>ABCD-EFGH</code>, and a verification URL: <code>microsoft.com/devicelogin</code>.</li>
+        <li>The TV shows you both on screen, then sits there waiting.</li>
+        <li>You go to that URL on your phone or laptop, type in the code, and sign in normally with your password and MFA.</li>
+        <li>Entra ID marks the code as approved.</li>
+        <li>The TV gets back a session token. You're signed in.</li>
+      </ol>
+      <p>
+        This is fine. It's how Azure CLI works. It's how GitHub CLI works. The Microsoft
+        Authentication Broker (a built-in Microsoft app with the ID
+        <code>29d9ed98-a469-4536-ade2-f981bc1d605e</code>) uses it for legitimate device-join
+        scenarios. There's nothing wrong with the design.
+      </p>
+      <p>
+        Here's the catch though. Nothing in the flow ties the device that asked for the code
+        to the user who entered it. They're just two different things, and Entra ID assumes
+        they're cooperating. If they aren't, if the device that asked is the attacker's and
+        the user entering it is the victim, Entra ID has no way to know.
+      </p>
+      <p>That's the gap the attack relies on.</p>
+
+      <h2>The attack in three steps</h2>
+      <p>Once you see the gap, the attack is genuinely simple:</p>
+      <ol>
+        <li>
+          The attacker asks Microsoft for a sign-in code. They use the same legitimate device
+          code flow you just read about. Microsoft hands them a real code, valid for about 15
+          minutes.
+        </li>
+        <li>
+          The attacker tricks the user into typing the code on the real Microsoft page. They
+          send it over email, Teams, WhatsApp, Signal, whatever. The pitch is usually "go to
+          <code>microsoft.com/devicelogin</code> and enter this code to join the meeting" or
+          "to view this document." The user goes to the real page, enters the code, signs in
+          with their actual password and MFA.
+        </li>
+        <li>
+          The attacker gets the user's session. Microsoft hands the access and refresh tokens
+          back to the attacker, not the user. The user has no idea anything happened.
+        </li>
+      </ol>
+      <p>
+        That's the whole attack. No malware. No fake login page. No lookalike domain. The
+        attacker uses Microsoft's own infrastructure to phish your users.
+      </p>
+      <p>
+        One thing worth knowing as you read the rest of this post. As of early 2026, the most
+        advanced campaigns don't even hand the user a pre-generated code. Microsoft Defender
+        Security Research
+        <a href="https://www.microsoft.com/en-us/security/blog/2026/04/06/ai-enabled-device-code-phishing-campaign-april-2026/" target="_blank" rel="noopener noreferrer">published findings in April 2026</a>
+        on campaigns that generate the code on the fly the moment the victim clicks the
+        phishing link, sidestepping the 15-minute validity window entirely. The detections
+        below still apply because the protocol fingerprint doesn't change, but the operational
+        tempo is faster than the basic attack chain implies.
+      </p>
+
+      <h2>Why it's hard to spot from the user side</h2>
+      <p>Everything we train users to check, this attack passes:</p>
+      <ul>
+        <li>The URL is <code>microsoft.com/devicelogin</code>. It's the real Microsoft.</li>
+        <li>The cert is valid because it's Microsoft.</li>
+        <li>The MFA prompt is the user's normal prompt because it's the real Entra ID flow.</li>
+        <li>The login page is the same one they sign into every day.</li>
+      </ul>
+      <p>
+        The only thing the user has to do "wrong" is type a code that someone sent them.
+        That's a tough one to defend through training, especially when the code shows up in a
+        Teams message from a coworker whose account got taken over yesterday. So the catch
+        happens in the logs, not at the user.
+      </p>
+
+      <h2>What it looks like in your queue</h2>
+      <p>The technical fingerprint is one specific value in the sign-in logs:</p>
+      <pre><code>AuthenticationProtocol == "deviceCode"</code></pre>
+      <p>
+        In a normal corporate environment, almost nobody legitimately uses this. The
+        exceptions are usually developers running Azure CLI, IT folks doing device joins, and
+        a small handful of automation accounts. If a regular knowledge worker shows up with
+        <code>deviceCode</code> in their sign-in logs, that's a hunting lead at minimum.
+      </p>
+      <p>Here's the simple query to see who's doing this in your tenant over the last 30 days:</p>
+      <pre><code>union SigninLogs, AADNonInteractiveUserSignInLogs
+| where TimeGenerated &gt; ago(30d)
+| where AuthenticationProtocol == "deviceCode"
+| where ResultType == 0
+| summarize SignInCount = count(),
+            Apps = make_set(AppDisplayName),
+            IPs = make_set(IPAddress),
+            Countries = make_set(Location)
+            by UserPrincipalName
+| order by SignInCount desc</code></pre>
+      <p>
+        Run this. The output is your baseline. Devs and IT will be on it. If anyone else shows
+        up, that's where you start digging.
+      </p>
+      <p>For an actual alerting rule, you want to fire on anyone outside that known group:</p>
+      <pre><code>let known_device_code_users = dynamic([
+    // UPNs of devs/IT who legitimately use device code flow
+    // Pull these from your 30-day baseline above
+]);
+union SigninLogs, AADNonInteractiveUserSignInLogs
+| where TimeGenerated &gt; ago(1h)
+| where AuthenticationProtocol == "deviceCode"
+| where ResultType == 0
+| where UserPrincipalName !in~ (known_device_code_users)
+| project TimeGenerated, UserPrincipalName, AppDisplayName, AppId,
+          IPAddress, Location, UserAgent, DeviceDetail, CorrelationId</code></pre>
+      <p>
+        Schedule this hourly with an hour lookback. Hits are usually high-quality. If you've
+        never seen one before, the first one will probably be real.
+      </p>
+
+      <h2>What to do when an alert fires</h2>
+      <p>When a <code>deviceCode</code> alert lands in your queue, work it in this order:</p>
+      <ol>
+        <li>
+          <strong>Check the user.</strong> Is this a developer or IT person who actually uses
+          Azure CLI, device join, or similar? If yes, add them to your allow-list and close
+          the alert. If no, keep going.
+        </li>
+        <li>
+          <strong>Check the IP.</strong> Is it the user's normal IP range or country? Is it a
+          known VPN, hosting provider, or somewhere they've never signed in from? Hosting and
+          PaaS IPs (Railway, DigitalOcean, AWS) on a <code>deviceCode</code> sign-in for a
+          non-developer is a strong signal. Railway in particular has been heavily abused by
+          the EvilTokens PhaaS platform tracked by Huntress since February 2026.
+        </li>
+        <li>
+          <strong>Check the app.</strong> The <code>AppDisplayName</code> and <code>AppId</code>
+          fields tell you what the attacker was authenticating to. If you see <code>AppId</code>
+          equal to <code>29d9ed98-a469-4536-ade2-f981bc1d605e</code> (Microsoft Authentication
+          Broker) on a non-IT user, escalate. That's the specific path Storm-2372 used to set
+          up further access.
+        </li>
+        <li>
+          <strong>Check for follow-on activity.</strong> Look at the same user's sign-ins,
+          mailbox activity, file access, and <code>AuditLogs</code> for the next hour. If you
+          see new mail forwarding rules, mass downloads from SharePoint or OneDrive, or any
+          device registration events, escalate immediately.
+        </li>
+        <li>
+          <strong>If it's confirmed bad, contain it.</strong> Revoke the user's sessions
+          (<code>Revoke-MgUserSignInSession</code> in PowerShell, or the equivalent in your IR
+          tooling), force a password reset, and check <code>AuditLogs</code> for any devices
+          registered on the account.
+        </li>
+      </ol>
+      <p>
+        Steps 4 and 5 may be Tier 2 territory in your shop. Don't sit on a confirmed device
+        code phish though. Token revocation is time-sensitive because the refresh token will
+        keep working until you kill it.
+      </p>
+
+      <h2>One thing your Tier 2 analyst should know</h2>
+      <p>
+        There's a more advanced version of this attack that's worth flagging up the chain.
+        After the attacker steals the initial token using the Microsoft Authentication Broker
+        app, they can use it to register their own device into your tenant and pull a Primary
+        Refresh Token. That gives them a foothold that satisfies "compliant device" or
+        "managed device" Conditional Access policies, which is bad news.
+      </p>
+      <p>
+        If you ever see a device code sign-in to the broker app followed by a
+        <code>Register device</code> event in <code>AuditLogs</code> from the same user within
+        an hour, that's the advanced Storm-2372 pattern and it should go to Tier 2 or your IR
+        team right away. Here's the join query if your Tier 2 wants to run it ad-hoc:
+      </p>
+      <pre><code>let suspicious_signins =
+    union SigninLogs, AADNonInteractiveUserSignInLogs
+    | where TimeGenerated &gt; ago(24h)
+    | where AuthenticationProtocol == "deviceCode"
+    | where AppId == "29d9ed98-a469-4536-ade2-f981bc1d605e"
+    | where ResultType == 0
+    | project SignInTime = TimeGenerated, UserPrincipalName, IPAddress;
+AuditLogs
+| where TimeGenerated &gt; ago(24h)
+| where ActivityDisplayName in ("Register device", "Add registered owner to device")
+| where Result == "success"
+| extend RegUser = tostring(InitiatedBy.user.userPrincipalName)
+| join kind=inner suspicious_signins on $left.RegUser == $right.UserPrincipalName
+| extend MinutesBetween = datetime_diff('minute', TimeGenerated, SignInTime)
+| where MinutesBetween between (0 .. 60)
+| project SignInTime, DeviceRegTime = TimeGenerated, MinutesBetween,
+          UserPrincipalName, IPAddress, ActivityDisplayName</code></pre>
+
+      <h2>How this gets shut down for good</h2>
+      <p>
+        Detection is your job in the queue. The fix is at the policy level, and it's
+        straightforward: block device code flow in Conditional Access for everyone who doesn't
+        need it.
+      </p>
+      <p>
+        In Entra ID, that's a Conditional Access policy with the Authentication Flows condition
+        set to Device code flow and the grant control set to Block. Microsoft now ships a
+        managed Conditional Access policy for this called "Block device code flow" that you can
+        enable from the Entra admin center under Protection &gt; Conditional Access &gt; Managed
+        Policies. If your devs and IT need it, scope an allow policy narrowly for them by user,
+        location, or device platform. That single control closes the door on this technique for
+        the rest of the workforce.
+      </p>
+      <p>
+        If your tenant doesn't have that policy yet, it's worth raising. The detections in this
+        post are great, but a CA block beats catching it after the fact every time.
+      </p>
+
+      <h2>Wrap-up</h2>
+      <p>Three things to take away:</p>
+      <ol>
+        <li><code>AuthenticationProtocol == "deviceCode"</code> for a regular user is suspicious until proven otherwise.</li>
+        <li>The same protocol plus the Microsoft Authentication Broker app (<code>29d9ed98-a469-4536-ade2-f981bc1d605e</code>) on a non-IT user is a Tier 2 escalation.</li>
+        <li>The fix is a Conditional Access block on device code flow. Detections matter, but the policy ends the threat.</li>
+      </ol>
+      <p>
+        Storm-2372 isn't going anywhere, and the smaller actors that picked this up aren't
+        either. Your sign-in logs already know when it's happening in your tenant. The job is
+        making sure you recognize it when it lands in your queue.
+      </p>
+
+      <h2>References and further reading</h2>
+      <h3>Primary threat intelligence</h3>
+      <ul class="ref-list">
+        <li>Microsoft Threat Intelligence, "Storm-2372 conducts device code phishing campaign," February 13, 2025 (updated February 14, 2025). <a href="https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Volexity, "Multiple Russian Threat Actors Targeting Microsoft Device Code Authentication," February 13, 2025. <a href="https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Volexity, "Phishing for Codes: Russian Threat Actors Target Microsoft 365 OAuth Workflows," April 22, 2025. <a href="https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Proofpoint Threat Insight, "Access granted: phishing with device code authorization for account takeover," December 18, 2025. <a href="https://www.proofpoint.com/us/blog/threat-insight/access-granted-phishing-device-code-authorization-account-takeover" target="_blank" rel="noopener noreferrer">Link</a> (UNK_AcademicFlare and TA2723 attribution.)</li>
+        <li>Huntress, "Threat Actors Abuse Railway.com PaaS as Microsoft 365 Token Attack Infrastructure," March 23, 2026. <a href="https://www.huntress.com/blog/railway-paas-m365-token-replay-campaign" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Microsoft Threat Intelligence, "Defending against evolving identity attack techniques," May 29, 2025. <a href="https://www.microsoft.com/en-us/security/blog/2025/05/29/defending-against-evolving-identity-attack-techniques/" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Microsoft Defender Security Research, "Inside an AI-enabled device code phishing campaign," April 6, 2026. <a href="https://www.microsoft.com/en-us/security/blog/2026/04/06/ai-enabled-device-code-phishing-campaign-april-2026/" target="_blank" rel="noopener noreferrer">Link</a></li>
+      </ul>
+      <h3>Microsoft documentation</h3>
+      <ul class="ref-list">
+        <li>Microsoft Learn, "Conditional Access: Block authentication flows." <a href="https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-block-authentication-flows" target="_blank" rel="noopener noreferrer">Link</a></li>
+        <li>Microsoft Learn, "Microsoft identity platform and the OAuth 2.0 device authorization grant flow." <a href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code" target="_blank" rel="noopener noreferrer">Link</a></li>
+      </ul>
+      <h3>Protocol specification</h3>
+      <ul class="ref-list">
+        <li>IETF RFC 8628, "OAuth 2.0 Device Authorization Grant." <a href="https://datatracker.ietf.org/doc/html/rfc8628" target="_blank" rel="noopener noreferrer">Link</a></li>
+      </ul>
+      <p class="post-note">
+        Detections in this post are written for Microsoft Sentinel using Entra ID diagnostic
+        settings forwarding <code>SigninLogs</code>, <code>AADNonInteractiveUserSignInLogs</code>,
+        and <code>AuditLogs</code>. Tune the allow-list to your environment before deploying.
+      </p>
+
+      <a class="back-link" href="../blog.html">&larr; back to the blog</a>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="custody">
+      <span><b>SITE:</b> frontline-dfir</span>
+      <span><b>BUILD:</b> 2026.07.01</span>
+      <span><b>INTEGRITY:</b> verified</span>
+    </div>
+    <div class="foot-links">
+      <a href="../index.html">Home</a>
+      <a href="../blog.html">Blog</a>
+      <a href="../artifacts.html">Artifact Library</a>
+      <a href="../about.html">About</a>
+      <a href="mailto:jlewcareer@gmail.com">Contact</a>
+    </div>
+    <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
+  </div>
+</footer>
+
+<script>
+  const clock = document.getElementById('utc-clock');
+  function tick() {
+    const d = new Date();
+    clock.textContent = 'UTC ' + d.toISOString().slice(11, 19);
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+
+</body>
+</html>

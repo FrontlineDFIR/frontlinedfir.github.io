@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Frontline DFIR — Digital Forensics &amp; Incident Response Research</title>
-<meta name="description" content="Frontline DFIR publishes hands-on digital forensics research: artifact deep-dives, intrusion analysis, and triage methodology from the field.">
+<title>Frontline DFIR — Jonathan Lewter, Digital Forensics &amp; Incident Response</title>
+<meta name="description" content="Frontline DFIR is Jonathan Lewter's DFIR research site: artifact deep-dives, Windows endpoint investigation, and triage methodology.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -30,6 +30,7 @@
       <li><a href="index.html" class="active">Home</a></li>
       <li><a href="blog.html">Blog</a></li>
       <li><a href="artifacts.html">Artifacts</a></li>
+      <li><a href="about.html">About</a></li>
     </ul>
   </div>
 </nav>
@@ -39,7 +40,7 @@
     <div>
       <p class="eyebrow">DIGITAL FORENSICS · INCIDENT RESPONSE · RESEARCH</p>
       <h1>Evidence doesn't lie.<br><span class="accent">You just have to parse it.</span></h1>
-      <p class="lede">Frontline DFIR is a security research outfit focused on what attackers leave behind. We publish artifact deep-dives, intrusion case studies, and triage methodology — built from real engagements, documented so you can repeat them.</p>
+      <p class="lede">Frontline DFIR is my personal research site, focused on what attackers leave behind on Windows endpoints. I publish artifact deep-dives, intrusion analysis, and triage methodology, documented so you can repeat it.</p>
       <div class="cta-row">
         <a class="btn" href="artifacts.html">Browse the Artifact Library</a>
         <a class="btn ghost" href="blog.html">Read the Research</a>
@@ -66,23 +67,23 @@ Volume serial  : 8C2A-44F1
   <section>
     <div class="sec-head">
       <span class="offset">0x0040</span>
-      <h2>What we work on</h2>
+      <h2>What I work on</h2>
     </div>
     <div class="grid-3">
       <div class="card focus-card">
         <span class="glyph">[ARTIFACT_RESEARCH]</span>
         <h3>Artifact Deep-Dives</h3>
-        <p>Binary formats, undocumented fields, and edge cases in Windows, macOS, and Linux forensic artifacts. We test parser behavior against ground truth so you don't have to guess what a timestamp means.</p>
+        <p>Windows artifacts, undocumented fields, and edge cases in what forensic tools actually report. I test parser behavior against ground truth so you don't have to guess what a timestamp means.</p>
       </div>
       <div class="card focus-card">
-        <span class="glyph">[INTRUSION_ANALYSIS]</span>
-        <h3>Intrusion Case Studies</h3>
-        <p>Sanitized walk-throughs of real incident response engagements: initial access to impact, the evidence at each stage, and the pivots that broke the case open.</p>
+        <span class="glyph">[IDENTITY_ATTACKS]</span>
+        <h3>Identity &amp; Phishing Analysis</h3>
+        <p>How modern identity attacks abuse legitimate auth flows, like OAuth device code phishing, and what the resulting sign-in and audit logs actually look like.</p>
       </div>
       <div class="card focus-card">
         <span class="glyph">[TRIAGE_METHOD]</span>
         <h3>Triage Methodology</h3>
-        <p>Collection strategies, tool workflows, and prioritization frameworks for the first four hours of an incident — when decisions matter most and data is still volatile.</p>
+        <p>Collection strategies, tool workflows, and prioritization frameworks for the first hours of an incident, when decisions matter most and data is still volatile.</p>
       </div>
     </div>
   </section>
@@ -91,26 +92,26 @@ Volume serial  : 8C2A-44F1
     <div class="sec-head">
       <span class="offset">0x0080</span>
       <h2>Latest research</h2>
-      <span class="count"><a href="blog.html">VIEW ALL →</a></span>
+      <span class="count"><a href="blog.html">VIEW ALL &rarr;</a></span>
     </div>
     <div class="post-strip">
       <article class="card">
-        <time datetime="2026-06-02">2026-06-02</time>
-        <h3><a href="blog.html">ShimCache Lies: When Execution Evidence Isn't</a></h3>
-        <p>AppCompatCache entries prove presence, not execution. We walk through three cases where that distinction changed the finding.</p>
-        <div><span class="tag exec">Execution</span></div>
+        <time datetime="2026-06-20">2026-06-20</time>
+        <h3><a href="posts/device-code-phishing.html">Demystifying Device Code Phishing</a></h3>
+        <p>How attackers abuse the OAuth device authorization flow to phish credentials and session tokens, and what it looks like in your sign-in logs.</p>
+        <div><span class="tag usr">Identity</span></div>
       </article>
       <article class="card">
-        <time datetime="2026-05-19">2026-05-19</time>
-        <h3><a href="blog.html">SRUM: The Database Attackers Forget About</a></h3>
-        <p>Network and process accounting survives anti-forensics surprisingly often. Parsing SRUDB.dat for exfiltration estimates.</p>
-        <div><span class="tag fs">Filesystem</span></div>
+        <time datetime="2026-06-01">2026-06-01</time>
+        <h3><a href="blog.html">My Top 5 DFIR Artifacts and How to Parse Them</a></h3>
+        <p>The five Windows artifacts I reach for first in an investigation, and the exact tools and commands to parse each one.</p>
+        <div><span class="tag fs">Artifacts</span></div>
       </article>
-      <article class="card">
-        <time datetime="2026-05-05">2026-05-05</time>
-        <h3><a href="blog.html">First Four Hours: A Ransomware Triage Playbook</a></h3>
-        <p>What to collect, in what order, and what to skip when the clock is running and the estate is encrypting.</p>
-        <div><span class="tag usr">Methodology</span></div>
+      <article class="card" style="opacity:0.6;">
+        <time>&mdash;</time>
+        <h3 style="color:var(--muted);">More research in progress</h3>
+        <p>New writeups land here as they're finished. Check back soon.</p>
+        <div><span class="tag">Coming soon</span></div>
       </article>
     </div>
   </section>
@@ -122,7 +123,7 @@ Volume serial  : 8C2A-44F1
     </div>
     <div class="card" style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 32px; align-items: center; padding: 32px;">
       <div>
-        <p style="font-size:16px; max-width:58ch;">A growing reference of forensic artifacts: what each one is, how to triage it under time pressure, and the exact steps to parse it correctly. Definitions, source paths, gotchas, and tooling — in one place.</p>
+        <p style="font-size:16px; max-width:58ch;">A growing reference of forensic artifacts: what each one is, how to triage it under time pressure, and the exact steps to parse it correctly. Definitions, source paths, gotchas, and tooling, all in one place.</p>
         <div class="cta-row" style="margin-top:24px;">
           <a class="btn" href="artifacts.html">Open the Library</a>
         </div>
@@ -145,17 +146,17 @@ Event Logs      <span class="hl">[DOCUMENTED]</span></div>
   <div class="wrap">
     <div class="custody">
       <span><b>SITE:</b> frontline-dfir</span>
-      <span><b>BUILD:</b> 2026.06.09</span>
+      <span><b>BUILD:</b> 2026.07.01</span>
       <span><b>INTEGRITY:</b> verified</span>
     </div>
     <div class="foot-links">
       <a href="index.html">Home</a>
       <a href="blog.html">Blog</a>
       <a href="artifacts.html">Artifact Library</a>
-      <a href="#">RSS</a>
-      <a href="#">Contact</a>
+      <a href="about.html">About</a>
+      <a href="mailto:jlewcareer@gmail.com">Contact</a>
     </div>
-    <p class="copyright">© 2026 Frontline DFIR. Research published for the defensive community.</p>
+    <p class="copyright">&copy; 2026 Jonathan Lewter. Research published for the defensive community.</p>
   </div>
 </footer>
 
